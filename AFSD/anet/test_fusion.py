@@ -123,7 +123,8 @@ def sub_processor(lock, pid, video_list):
             flow_clip = flow_clip.unsqueeze(0).cuda()
             rgb_clip = (rgb_clip / 255.0) * 2.0 - 1.0
             flow_clip = (flow_clip / 255.0) * 2.0 - 1.0
-
+            print(rgb_clip.shape)
+            print(flow_clip.shape)
             with torch.no_grad():
                 rgb_output_dict = rgb_net(rgb_clip)
                 flow_output_dict = flow_net(flow_clip)

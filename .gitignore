@@ -122,3 +122,11 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# 忽略测试和性能统计所用文件
+log.txt
+AFSD/anet/flops.py
+AFSD/thumos14/flops.py
+AFSD/thumos14/test_alone.py
+thumos_annotations/test_video_info_alone.csv
+

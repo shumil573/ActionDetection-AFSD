@@ -113,8 +113,12 @@ if __name__ == '__main__':
                 flow_clip = flow_clip.unsqueeze(0).cuda()
 
             with torch.no_grad():
+                #print('clip的大小')
+                #print(clip.shape)
                 output_dict = net(clip)
                 if fusion:
+                    #print('flow_clip的大小')
+                    #print(flow_clip.shape)
                     flow_output_dict = flow_net(flow_clip)
 
             loc, conf, priors = output_dict['loc'], output_dict['conf'], output_dict['priors'][0]

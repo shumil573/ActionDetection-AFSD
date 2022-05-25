@@ -103,6 +103,7 @@ def sub_processor(lock, pid, video_list):
                 clip = torch.cat([clip, tmp], dim=1)
             clip = clip.unsqueeze(0).cuda()
             clip = (clip / 255.0) * 2.0 - 1.0
+            print(clip.shape)
             with torch.no_grad():
                 output_dict = net(clip)
 

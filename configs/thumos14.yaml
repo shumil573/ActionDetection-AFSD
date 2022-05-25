@@ -11,6 +11,7 @@ dataset:
   testing:
     video_mp4_path: ./datasets/thumos14/test/
     video_info_path: thumos_annotations/test_video_info.csv
+    video_info_path_alone: thumos_annotations/test_video_info_alone.csv
     video_anno_path: thumos_annotations/test_Annotation_ours.csv
     video_data_path: ./datasets/thumos14/test_npy/
     crop_size: 96
