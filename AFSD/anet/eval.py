@@ -1,3 +1,9 @@
+'''
+使用mAP指标衡量结果的自动化脚本
+
+# evaluate ActivityNet validation fusion result as example
+python3 AFSD/anet/eval.py output/anet_fusion.json
+'''
 import argparse
 import numpy as np
 from AFSD.evaluation.eval_detection import ANETdetection

@@ -11,7 +11,7 @@ class MaxPool3dSamePadding(nn.MaxPool3d):
             return max(self.kernel_size[dim] - (s % self.stride[dim]), 0)
 
     def forward(self, x):
-        # compute 'same' padding
+        # 计算same类型的padding大小
         batch, channel, t, h, w = x.size()
         pad_t = self.compute_pad(0, t)
         pad_h = self.compute_pad(1, h)
@@ -25,8 +25,6 @@ class MaxPool3dSamePadding(nn.MaxPool3d):
         pad_w_b = pad_w - pad_w_f
 
         pad = [pad_w_f, pad_w_b, pad_h_f, pad_h_b, pad_t_f, pad_t_b]
-        # print x.size()
-        # print pad
         x = F.pad(x, pad)
         return super(MaxPool3dSamePadding, self).forward(x)
 
@@ -109,7 +107,7 @@ class Unit3D(nn.Module):
                  use_batch_norm=False,
                  use_bias=False):
 
-        """Initializes Unit3D module."""
+        """"初始化Unit3D模块"""
         super(Unit3D, self).__init__()
 
         self._output_channels = output_channels

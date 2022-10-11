@@ -1,4 +1,5 @@
 # This code is originally from the official ActivityNet repo
+# 本代码直接来源于ActivityNet官方仓库，仅做小的改动
 # https://github.com/activitynet/ActivityNet
 # Small modification from ActivityNet Code
 

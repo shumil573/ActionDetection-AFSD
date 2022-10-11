@@ -9,26 +9,26 @@ from AFSD.common.config import config
 import random
 import math
 
-
+# 得到原始下标到下标，下标到种类名的映射
 def get_class_index_map(class_info_path='thumos_annotations/Class Index_Detection.txt'):
-    txt = np.loadtxt(class_info_path, dtype=str)
+    txt = np.loadtxt(class_info_path, dtype=str)  # 形如 “序列号 类型名” 的键值对
     originidx_to_idx = {}
     idx_to_class = {}
-    for idx, l in enumerate(txt):
-        originidx_to_idx[int(l[0])] = idx + 1
-        idx_to_class[idx + 1] = l[1]
+    for idx, l in enumerate(txt):  #例如idx:7 l:BaseballPitch
+        originidx_to_idx[int(l[0])] = idx + 1  # originidx_to_idx加入键值对7:1
+        idx_to_class[idx + 1] = l[1]  # idx_to_class加入键值对1:BaseballPitch
     return originidx_to_idx, idx_to_class
 
-
+# 得到以video为索引，包含fps,sample_fps,count,sample_count信息
 def get_video_info(video_info_path):
     df_info = pd.DataFrame(pd.read_csv(video_info_path)).values[:]
     video_infos = {}
     for info in df_info:
-        video_infos[info[0]] = {
-            'fps': info[1],
-            'sample_fps': info[2],
-            'count': info[3],
-            'sample_count': info[4]
+        video_infos[info[0]] = {  # video:视频名，例如：video_test_0000004
+            'fps': info[1],  # fps:帧率，大多数为30.0
+            'sample_fps': info[2],  # sample_fps:采样率
+            'count': info[3],  # count:视频总帧数
+            'sample_count': info[4]  # sample_count:采样帧数
         }
     return video_infos
 

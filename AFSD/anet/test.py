@@ -1,3 +1,19 @@
+"""测试activity-1.3数据集所用的入口文件
+
+包含rgb, flow, fusion三种形式
+配置少部分来源于命令行配置，大部分来自于AFSD.common.config所引入的.yaml文件
+（存于configs文件夹下）
+
+常见调用方式（在根目录下）：
+# run RGB model
+python3 AFSD/anet/test.py configs/anet.yaml --output_json=anet_rgb.json --nms_sigma=0.85 --ngpu=GPU_NUM
+
+# run Flow model
+python3 AFSD/anet/test.py configs/anet_flow.yaml --output_json=anet_flow.json --nms_sigma=0.85 --ngpu=GPU_NUM
+
+# run RGB + Flow model
+python3 AFSD/anet/test_fusion.py configs/anet.yaml --output_json=anet_fusion.json --nms_sigma=0.85 --ngpu=GPU_NUM
+"""
 import torch
 import torch.nn as nn
 import os
@@ -85,8 +101,8 @@ def sub_processor(lock, pid, video_list):
 
         data = np.load(os.path.join(mp4_data_path, video_name + '.npy'))
         frames = data
-        frames = np.transpose(frames, [3, 0, 1, 2])
-        data = centor_crop(frames)
+        frames = np.transpose(frames, [3, 0, 1, 2])  # (3，帧数，112,112)
+        data = centor_crop(frames)  # (3，帧数，96,96)，中心裁剪，控制输入网络的大小
         data = torch.from_numpy(data.copy())
 
         output = []
@@ -94,11 +110,11 @@ def sub_processor(lock, pid, video_list):
             output.append([])
         res = torch.zeros(num_classes, top_k, 3)
 
-        for offset in offsetlist:
+        for offset in offsetlist:  # 预处理每个clip的rgb,flow特征
             clip = data[:, offset: offset + clip_length]
             clip = clip.float()
-            if clip.size(1) < clip_length:
-                tmp = torch.ones(
+            if clip.size(1) < clip_length:  # 如果视频长度小于768帧（每个clip长度控制为256帧）
+                tmp = torch.ones(  # 如果视频或某个clip剪辑的长度小于768帧，填充到固定长度
                     [clip.size(0), clip_length - clip.size(1), crop_size, crop_size]).float() * 127.5
                 clip = torch.cat([clip, tmp], dim=1)
             clip = clip.unsqueeze(0).cuda()

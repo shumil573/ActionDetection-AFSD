@@ -17,7 +17,7 @@ class Unit3D(nn.Module):
                  padding_valid_spatial=False,
                  name='unit_3d'):
 
-        """Initializes Unit3D module."""
+        """初始化Unit3D模块"""
         super(Unit3D, self).__init__()
 
         self._output_channels = output_channels
@@ -34,32 +34,24 @@ class Unit3D(nn.Module):
                                 out_channels=self._output_channels,
                                 kernel_size=self._kernel_shape,
                                 stride=self._stride,
-                                padding=0,
-                                # we always want padding to be 0 here.
-                                # We will dynamically pad based on input size in forward function
+                                padding=0,  # 一般填充为0，将在前向传播中动态地基于输入大小而填充，即compute_pad函数
                                 bias=self._use_bias)
 
         if self._use_batch_norm:
             self.bn = nn.BatchNorm3d(self._output_channels, eps=0.001, momentum=0.01)
 
-    def compute_pad(self, dim, s):
+    def compute_pad(self, dim, s):  # 在前向传播中，动态地基于输入大小而填充
         if s % self._stride[dim] == 0:
             return max(self._kernel_shape[dim] - self._stride[dim], 0)
         else:
             return max(self._kernel_shape[dim] - (s % self._stride[dim]), 0)
 
     def forward(self, x):
-        # compute 'same' padding
+        # 计算same类型的padding大小
         (batch, channel, t, h, w) = x.size()
-        # print t,h,w
-        # out_t = np.ceil(float(t) / float(self._stride[0]))
-        # out_h = np.ceil(float(h) / float(self._stride[1]))
-        # out_w = np.ceil(float(w) / float(self._stride[2]))
-        # print out_t, out_h, out_w
         pad_t = self.compute_pad(0, t)
         pad_h = self.compute_pad(1, h)
         pad_w = self.compute_pad(2, w)
-        # print pad_t, pad_h, pad_w
 
         pad_t_f = pad_t // 2
         pad_t_b = pad_t - pad_t_f
@@ -68,16 +60,13 @@ class Unit3D(nn.Module):
         pad_w_f = pad_w // 2
         pad_w_b = pad_w - pad_w_f
 
-        pad = [pad_w_f, pad_w_b, pad_h_f, pad_h_b, pad_t_f, pad_t_b]
+        pad = [pad_w_f, pad_w_b, pad_h_f, pad_h_b, pad_t_f, pad_t_b]  # （左填充，右填充，上填充，下填充，前填充，后填充）
         if self.padding_valid_spatial:
             pad = [0, 0, 0, 0, pad_t_f, pad_t_b]
 
         if self.padding == -1:
             pad = [0, 0, 0, 0, 0, 0]
-        # print x.size()
-        # print pad
-        x = F.pad(x, pad)
-        # print x.size()
+        x = F.pad(x, pad)  # 对五维的数据，使用六维的pad进行填充：（左填充，右填充，上填充，下填充，前填充，后填充）
 
         x = self.conv3d(x)
         if self._use_batch_norm:
@@ -123,6 +112,8 @@ class InceptionModule(nn.Module):
 
 class InceptionI3d(nn.Module):
     """Inception-v1 I3D architecture.
+    Inception-v1 I3D 结构：
+
     The model is introduced in:
         Quo Vadis, Action Recognition? A New Model and the Kinetics Dataset
         Joao Carreira, Andrew Zisserman
@@ -137,6 +128,8 @@ class InceptionI3d(nn.Module):
     # Endpoints of the model in order. During construction, all the endpoints up
     # to a designated `final_endpoint` are returned in a dictionary as the
     # second return value.
+    # 按顺序排列的模型的endpoints。在构造过程中，指定的' final_endpoint '之前的所有端点，
+    # 都将作为第二个返回值返回到字典中。
     VALID_ENDPOINTS = (
         'Conv3d_1a_7x7',
         'MaxPool3d_2a_3x3',
@@ -161,22 +154,30 @@ class InceptionI3d(nn.Module):
     def __init__(self, num_classes=400, spatial_squeeze=True,
                  final_endpoint='Logits', name='inception_i3d', in_channels=3,
                  dropout_keep_prob=0.5):
-        """Initializes I3D model instance.
+        """Initializes I3D model instance.初始化I3D模型的实例。
+
         Args:
           num_classes: The number of outputs in the logit layer (default 400, which
               matches the Kinetics dataset).
+              logit层中的输出数(默认为400，对应于Kinetics数据集)。
           spatial_squeeze: Whether to squeeze the spatial dimensions for the logits
               before returning (default True).
-          final_endpoint: The model contains many possible endpoints.
+              是否在返回之前压缩logit的空间维度(默认为True)。
+          final_endpoint: The model contains many possible endpoints.模型包含许多可能的端点。
               `final_endpoint` specifies the last endpoint for the model to be built
               up to. In addition to the output at `final_endpoint`, all the outputs
               at endpoints up to `final_endpoint` will also be returned, in a
               dictionary. `final_endpoint` must be one of
               InceptionI3d.VALID_ENDPOINTS (default 'Logits').
-          name: A string (optional). The name of this module.
+              'final_endpoint'
+              指定要构建的模型的最后一个端点。除了' final_endpoint '的输出之外，
+              所有输出在端点之前' final_endpoint '也会被返回，以字典的形式。`final_endpoint`
+              必须是InceptionI3d.VALID_ENDPOINTS之一 (默认值为 'Logits').
+          name: A string (optional). The name of this module.一个字符串(可选)。此模块的名称。
         Raises:
-          ValueError: if `final_endpoint` is not recognized.
+          ValueError: if `final_endpoint` is not recognized.如果“final_endpoint”未被识别。
         """
+
 
         if final_endpoint not in self.VALID_ENDPOINTS:
             raise ValueError('Unknown final endpoint %s' % final_endpoint)
@@ -227,7 +228,7 @@ class InceptionI3d(nn.Module):
             return
 
         end_point = 'Mixed_3b'
-        self.end_points[end_point] = InceptionModule(192, [64, 96, 128, 16, 32, 32],
+        self.end_points[end_point] = InceptionModule(192, [64, 96, 128, 16, 32, 32],  # 传入六个层的输出通道数
                                                      name + end_point)
         if self._final_endpoint == end_point:
             return
@@ -324,12 +325,12 @@ class InceptionI3d(nn.Module):
     def forward(self, x):
         for end_point in self.VALID_ENDPOINTS:
             if end_point in self.end_points:
-                x = self._modules[end_point](x)  # use _modules to work with dataparallel
+                x = self._modules[end_point](x)  # use _modules to work with dataparallel使用_modules来处理数据并行
 
         x = self.logits(self.dropout(self.avg_pool(x)))
         if self._spatial_squeeze:
             logits = x.squeeze(3).squeeze(3)
-        # logits is batch X time X classes, which is what we want to work with
+        # logits (batch,time,classes)
         return logits
 
     def extract_features(self, x):

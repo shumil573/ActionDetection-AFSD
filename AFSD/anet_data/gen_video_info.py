@@ -1,3 +1,16 @@
+"""生成标注文件
+
+结合数据集视频，整理原标注文件，得到anet_annotations/video_info_train_val.json，内容如下：
+subset: training, testing, validation
+duration: 以秒数计的时长
+frame_num: 以帧数计的长度
+annotations: 视频标注
+    start动作开始
+    end动作结束
+    label动作分类名
+    label_id动作分类序号
+fps： 帧率
+"""
 import os
 import json
 from AFSD.anet_data.class_map import class_to_id

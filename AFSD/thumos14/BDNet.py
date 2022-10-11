@@ -11,7 +11,7 @@ from AFSD.prop_pooling.boundary_pooling_op import BoundaryMaxPooling
 
 num_classes = config['dataset']['num_classes']
 freeze_bn = config['model']['freeze_bn']
-freeze_bn_affine = config['model']['freeze_bn_affine']
+freeze_bn_affine = config['model']['freeze_bn_affine']  # 冻结当前层的参数
 
 layer_num = 6
 conv_channels = 512
@@ -21,6 +21,12 @@ feat_t = 256 // 4
 class I3D_BackBone(nn.Module):
     def __init__(self, final_endpoint='Mixed_5c', name='inception_i3d', in_channels=3,
                  freeze_bn=freeze_bn, freeze_bn_affine=freeze_bn_affine):
+        """初始化I3D骨干网络的实例。
+         Args:
+            final_endpoint:
+            name: 使用name标示当前网络，参与final_endpoint的判断
+            freeze_bn: 默认在训练中，冻结I3D骨干网络中的所有BatchNorm3d层
+        """
         super(I3D_BackBone, self).__init__()
         self._model = InceptionI3d(final_endpoint=final_endpoint,
                                    name=name,
@@ -32,13 +38,11 @@ class I3D_BackBone(nn.Module):
     def load_pretrained_weight(self, model_path='models/i3d_models/rgb_imagenet.pt'):
         self._model.load_state_dict(torch.load(model_path), strict=False)
 
-    def train(self, mode=True):
+    def train(self, mode=True):  # freeze all BatchNorm3d in I3D backbone
         super(I3D_BackBone, self).train(mode)
         if self._freeze_bn and mode:
-            # print('freeze all BatchNorm3d in I3D backbone.')
             for name, m in self._model.named_modules():
                 if isinstance(m, nn.BatchNorm3d):
-                    # print('freeze {}.'.format(name))
                     m.eval()
                     if self._freeze_bn_affine:
                         m.weight.requires_grad_(False)
@@ -110,25 +114,25 @@ class ProposalBranch(nn.Module):
 
 
 class CoarsePyramid(nn.Module):
-    def __init__(self, feat_channels, frame_num=256):
+    def __init__(self, feat_channels, frame_num=256): # feat_channels=[832, 1024]
         super(CoarsePyramid, self).__init__()
         out_channels = conv_channels
-        self.pyramids = nn.ModuleList()
+        self.pyramids = nn.ModuleList()  # 含2个Unit3D，layer_num-2 个Unit1D
         self.loc_heads = nn.ModuleList()
-        self.frame_num = frame_num
+        self.frame_num = frame_num  # thumos14数据集采样256帧长度的视频
         self.layer_num = layer_num
         self.pyramids.append(nn.Sequential(
             Unit3D(
-                in_channels=feat_channels[0],
+                in_channels=feat_channels[0],  # in_channels=832 同nn.Conv3d.in_channels，即Unit3D内主要的conv3d网络的in_channels属性
                 output_channels=out_channels,
                 kernel_shape=[1, 6, 6],
                 padding='spatial_valid',
-                use_batch_norm=False,
-                use_bias=True,
-                activation_fn=None
+                use_batch_norm=False,  # 是否在conv3d网络后加入nn.BatchNorm3d层
+                use_bias=True,  # 同nn.Conv3d.bias，即Unit3D内主要的conv3d网络的bias属性
+                activation_fn=None  # 是否在nn.Conv3d网络后加入nn.functional.relu层
             ),
             nn.GroupNorm(32, out_channels),
-            nn.ReLU(inplace=True)
+            nn.ReLU(inplace=True)  # 修改输入对象的值
         ))
 
         self.pyramids.append(nn.Sequential(
@@ -146,13 +150,13 @@ class CoarsePyramid(nn.Module):
         ))
         for i in range(2, layer_num):
             self.pyramids.append(nn.Sequential(
-                Unit1D(
+                Unit1D(  # 以下属性基本属于Unit1D内，主要的nn.Conv1d网络
                     in_channels=out_channels,
                     output_channels=out_channels,
                     kernel_shape=3,
                     stride=2,
                     use_bias=True,
-                    activation_fn=None
+                    activation_fn=None  # 是否在nn.Conv1d网络后加入nn.functional.relu层
                 ),
                 nn.GroupNorm(32, out_channels),
                 nn.ReLU(inplace=True)
@@ -236,7 +240,7 @@ class CoarsePyramid(nn.Module):
         )
 
         self.deconv = nn.Sequential(
-            Unit1D(out_channels, out_channels, 3, activation_fn=None),
+            Unit1D(out_channels, out_channels, 3, activation_fn=None),  # kernel_size:3 stride:1
             nn.GroupNorm(32, out_channels),
             nn.ReLU(inplace=True),
             Unit1D(out_channels, out_channels, 3, activation_fn=None),
@@ -252,9 +256,9 @@ class CoarsePyramid(nn.Module):
         for i in range(layer_num):
             self.loc_heads.append(ScaleExp())
             self.priors.append(
-                torch.Tensor([[(c + 0.5) / t] for c in range(t)]).view(-1, 1)
+                torch.Tensor([[(c + 0.5) / t] for c in range(t)]).view(-1, 1)  # 将（0,1）的t个等距分布，整理为（t,1）的tensor
             )
-            t = t // 2
+            t = t // 2  # t=64,32,16,8,4,2,1
 
     def forward(self, feat_dict, ssl=False):
         pyramid_feats = []
@@ -371,10 +375,10 @@ class BDNet(nn.Module):
     def __init__(self, in_channels=3, backbone_model=None, training=True):
         super(BDNet, self).__init__()
 
-        self.coarse_pyramid_detection = CoarsePyramid([832, 1024])
+        self.coarse_pyramid_detection = CoarsePyramid([832, 1024])  # 初始化特征金字塔网络，用于输出粗略估计的proposal
         self.reset_params()
 
-        self.backbone = I3D_BackBone(in_channels=in_channels)
+        self.backbone = I3D_BackBone(in_channels=in_channels)  # 初始化I3D网络，用于提取3D特征：T×C×H×W（时间步长、通道、高度和宽度）
         self.boundary_max_pooling = BoundaryMaxPooling()
         self._training = training
 
@@ -405,13 +409,13 @@ class BDNet(nn.Module):
             self.weight_init(m)
 
     def forward(self, x, proposals=None, ssl=False):
-        # x should be [B, C, 256, 96, 96] for THUMOS14
+        # THUMOS14数据集下，x:[B, C, 256, 96, 96]
         feat_dict = self.backbone(x)
         if ssl:
             top_feat = self.coarse_pyramid_detection(feat_dict, ssl)
             decoded_segments = proposals[0].unsqueeze(0)
             plen = decoded_segments[:, :, 1:] - decoded_segments[:, :, :1] + 1.0
-            in_plen = torch.clamp(plen / 4.0, min=1.0)
+            in_plen = torch.clamp(plen / 4.0, min=1.0)  # 夹紧plen张量的区间
             out_plen = torch.clamp(plen / 10.0, min=1.0)
             frame_segments = torch.cat([
                 torch.round(decoded_segments[:, :, :1] - out_plen),
@@ -422,7 +426,7 @@ class BDNet(nn.Module):
             anchor, positive, negative = [], [], []
             for i in range(3):
                 bound_feat = self.boundary_max_pooling(top_feat[i], frame_segments / self.scales[i])
-                # for triplet loss
+                # for triplet loss 衡量背景Bg和动作A1,A2的三元组损失
                 ndim = bound_feat.size(1) // 2
                 anchor.append(bound_feat[:, ndim:, 0])
                 positive.append(bound_feat[:, :ndim, 1])
@@ -449,6 +453,7 @@ class BDNet(nn.Module):
             }
 
 
+# 使用randn输出一个clip推断的用时和fps
 def test_inference(repeats=3, clip_frames=256):
     model = BDNet(training=False)
     model.eval()

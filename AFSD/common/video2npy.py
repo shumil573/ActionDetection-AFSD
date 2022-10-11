@@ -50,7 +50,7 @@ def video2npy(data_path, anno_path, save_path, sample_fps=10.0, resolution=112,
         res_frames = []
         while True:
             ret, frame = capture.read()
-            if ret is False:
+            if ret is False:  # 根据环境不同，本行处可能出现：将视频第一帧读取为ret==False的情况
                 break
             frame = np.array(frame)[:, :, ::-1]
             cur_count += 1
@@ -70,7 +70,7 @@ def video2npy(data_path, anno_path, save_path, sample_fps=10.0, resolution=112,
         print('{}: result shape: {}'.format(video_name, res_frames.shape))
 
         video_infos.append([video_name, fps, sample_fps, count, save_count])
-        # save to npy file
+        # 保存為.npy文件
         np.save(os.path.join(save_path, video_name + '.npy'), res_frames)
 
     if export_video_info_path is not None:

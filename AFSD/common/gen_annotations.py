@@ -1,3 +1,6 @@
+'''
+清洗处理thumos14数据集的标注文件
+'''
 import pandas as pd
 
 data = pd.read_csv('thumos_annotations/val_Annotation.csv')

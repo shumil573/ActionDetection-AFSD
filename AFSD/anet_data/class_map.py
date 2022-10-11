@@ -1,3 +1,5 @@
+"""为gen_video_info.py提供动作分类到序号的映射关系
+"""
 import numpy as np
 
 class_name_path = 'anet_annotations/action_name.txt'

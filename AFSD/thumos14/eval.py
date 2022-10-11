@@ -1,3 +1,9 @@
+'''
+使用mAP指标衡量结果的自动化脚本
+
+# evaluate THUMOS14 fusion result as example
+python3 AFSD/thumos14/eval.py output/thumos14_fusion.json
+'''
 import argparse
 from AFSD.evaluation.eval_detection import ANETdetection
 

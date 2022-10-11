@@ -1,3 +1,19 @@
+"""训练activity-1.3数据集所用的入口文件
+
+包含rgb, flow两种形式
+配置文件来自少部分来源于命令行配置，大部分来自于AFSD.common.config所引入的.yaml文件
+
+调用方式及常用参数（在根目录下）：
+lw: loc weight
+cw: cls weight
+piou: PIoU Loss: Towards Accurate Oriented Object Detection in Complex Environments
+resume: 重启训练的epoch数
+# train RGB model
+python3 AFSD/anet/train.py configs/anet.yaml --lw=1 --cw=1 --piou=0.6
+
+# train Flow model
+python3 AFSD/anet/train.py configs/anet_flow.yaml --lw=1 --cw=1 --piou=0.6
+"""
 import os
 import random
 import torch
@@ -41,7 +57,7 @@ def print_training_info():
     print('resume: ', resume)
     print('gpu num: ', ngpu)
 
-
+# 生成对应的随机种子，保证模型的可复现
 def set_seed(seed):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
@@ -76,7 +92,7 @@ def set_rng_state(states):
     if torch.cuda.is_available():
         torch.cuda.set_rng_state(states[3])
 
-
+# 保存模型和优化器，每个epoch一次
 def save_model(epoch, model, optimizer):
     torch.save(model.module.state_dict(),
                os.path.join(checkpoint_path, 'checkpoint-{}.ckpt'.format(epoch)))
@@ -84,7 +100,7 @@ def save_model(epoch, model, optimizer):
                 'state': get_rng_states()},
                os.path.join(train_state_path, 'checkpoint_{}.ckpt'.format(epoch)))
 
-
+# 重启训练，resume默认为0, start_epoch为1
 def resume_training(resume, model, optimizer):
     start_epoch = 1
     if resume > 0:
@@ -109,7 +125,7 @@ def calc_bce_loss(start, end, scores):
                                       reduction='mean')
     return loss_start, loss_end
 
-
+# 一个epoch的训练过程，含损失计算和模型存储
 def forward_one_epoch(net, clips, targets, scores=None, training=True, ssl=True):
     clips = clips.cuda()
     targets = [t.cuda() for t in targets]
@@ -235,14 +251,14 @@ if __name__ == '__main__':
     print_training_info()
     set_seed(random_seed)
     """
-    Setup model
+    设置模型
     """
     net = BDNet(in_channels=config['model']['in_channels'],
                 backbone_model=config['model']['backbone_model'])
     net = nn.DataParallel(net, device_ids=list(range(ngpu))).cuda()
 
     """
-    Setup optimizer
+    设置优化器
     """
     optimizer = torch.optim.Adam([
         {'params': net.module.backbone.parameters(),
@@ -254,13 +270,13 @@ if __name__ == '__main__':
     ])
 
     """
-    Setup loss
+    设置损失函数
     """
     piou = config['training']['piou']
     CPD_Loss = MultiSegmentLoss(num_classes, piou, 1.0, use_focal_loss=focal_loss)
 
     """
-    Setup dataloader
+    设置DataLoader
     """
     train_dataset = ANET_Dataset(config['dataset']['training']['video_info_path'],
                                  config['dataset']['training']['video_mp4_path'],
@@ -275,7 +291,7 @@ if __name__ == '__main__':
     epoch_step_num = len(train_dataset) // batch_size
 
     """
-    Start training
+    开始训练（含重启的情况）
     """
     start_epoch = resume_training(resume, net, optimizer)
 

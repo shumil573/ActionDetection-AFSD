@@ -115,7 +115,7 @@ if __name__ == '__main__':
                    './datasets/thumos14/test_flows')
 
     gen_flow_npy(config['dataset']['training']['video_info_path'],
-                 './datasets/thumos14/validation_flows',
+                 './datasets/thumos14/validation_flows',  # 本文使用验证集作为thumos14训练的数据集
                  './datasets/thumos14/validation_flow_npy')
 
     gen_flow_npy(config['dataset']['testing']['video_info_path'],

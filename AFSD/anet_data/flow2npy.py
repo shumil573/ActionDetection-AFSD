@@ -1,3 +1,7 @@
+"""将光流数据整理为.npy文件
+
+对输入文件夹内的.jpg光流文件，转换为拼接的.npy文件，一个视频对应于一个.npy文件。
+"""
 import cv2
 import os
 import numpy as np
@@ -14,7 +18,7 @@ parser.add_argument('--flow_frame_path', type=str,
                     default='datasets/activitynet/flow/frame_train_val_112')
 parser.add_argument('--flow_npy_path', type=str,
                     default='datasets/activitynet/flow/train_val_npy_112')
-parser.add_argument('--max_frame_num', type=int, default=768)
+parser.add_argument('--max_frame_num', type=int, default=768)  # 控制视频长度为768帧及以下
 args = parser.parse_args()
 
 thread_num = args.thread_num

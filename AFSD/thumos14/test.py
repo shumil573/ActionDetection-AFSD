@@ -1,6 +1,24 @@
+"""测试thumos14数据集所用的入口文件
+
+包含rgb, flow, fusion三种形式
+配置少部分来源于命令行配置，大部分来自于AFSD.common.config所引入的.yaml文件
+（存于configs文件夹下）
+
+调用方式（在根目录下）：
+# run RGB model
+python3 AFSD/thumos14/test.py configs/thumos14.yaml --checkpoint_path=models/thumos14/checkpoint-15.ckpt --output_json=thumos14_rgb.json
+
+# run flow model
+python3 AFSD/thumos14/test.py configs/thumos14_flow.yaml --checkpoint_path=models/thumos14_flow/checkpoint-16.ckpt --output_json=thumos14_flow.json
+
+# run fusion (RGB + flow) model
+python3 AFSD/thumos14/test.py configs/thumos14.yaml --fusion --output_json=thumos14_fusion.json
+"""
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = '3'
+
 import torch
 import torch.nn as nn
-import os
 import numpy as np
 import tqdm
 import json
@@ -25,19 +43,22 @@ if not os.path.exists(output_path):
     os.makedirs(output_path)
 fusion = config['testing']['fusion']
 
-# getting path for fusion
+# 设置在fusion选项下，可用的数据和模型路径
 rgb_data_path = config['testing'].get('rgb_data_path',
-                                      './datasets/thumos14/test_npy/')
+                                      '../../datasets/thumos14/test_npy/')
 flow_data_path = config['testing'].get('flow_data_path',
-                                       './datasets/thumos14/test_flow_npy/')
+                                       '../../datasets/thumos14/test_flow_npy/')
 rgb_checkpoint_path = config['testing'].get('rgb_checkpoint_path',
-                                            './models/thumos14/checkpoint-15.ckpt')
+                                            '../../models/thumos14/checkpoint-15.ckpt')
 flow_checkpoint_path = config['testing'].get('flow_checkpoint_path',
-                                             './models/thumos14_flow/checkpoint-16.ckpt')
+                                             '../../models/thumos14_flow/checkpoint-16.ckpt')
 
 if __name__ == '__main__':
-    video_infos = get_video_info(config['dataset']['testing']['video_info_path'])
-    originidx_to_idx, idx_to_class = get_class_index_map()
+    #.yaml配置路径可能不具有普适性，在根目录下运行时，可采用下述配置
+    #video_infos = get_video_info(config['dataset']['testing']['video_info_path'])
+    video_infos = get_video_info('./thumos_annotations/test_video_info.csv')  # 以video为索引，包含fps,sample_fps,count,sample_count信息
+    #originidx_to_idx, idx_to_class = get_class_index_map()
+    originidx_to_idx, idx_to_class = get_class_index_map(class_info_path='./thumos_annotations/Class Index_Detection.txt')  # 原始下标到下标，下标到种类名
 
     npy_data_path = config['dataset']['testing']['video_data_path']
     if fusion:
@@ -61,22 +82,22 @@ if __name__ == '__main__':
     else:
         score_func = nn.Sigmoid()
 
-    centor_crop = videotransforms.CenterCrop(config['dataset']['testing']['crop_size'])
+    centor_crop = videotransforms.CenterCrop(config['dataset']['testing']['crop_size'])  # 将输入剪裁为96x96的帧空间大小
 
     result_dict = {}
     for video_name in tqdm.tqdm(list(video_infos.keys()), ncols=0):
         sample_count = video_infos[video_name]['sample_count']
         sample_fps = video_infos[video_name]['sample_fps']
-        if sample_count < clip_length:
+        if sample_count < clip_length:  # 如果视频长度小于256帧（每个clip长度控制为256帧）
             offsetlist = [0]
         else:
-            offsetlist = list(range(0, sample_count - clip_length + 1, stride))
+            offsetlist = list(range(0, sample_count - clip_length + 1, stride))  # 测试情况下，相邻clip具有128帧的时间重叠
             if (sample_count - clip_length) % stride:
                 offsetlist += [sample_count - clip_length]
 
         data = np.load(os.path.join(npy_data_path, video_name + '.npy'))
-        data = np.transpose(data, [3, 0, 1, 2])
-        data = centor_crop(data)
+        data = np.transpose(data, [3, 0, 1, 2])  # (3，帧数，112,112)
+        data = centor_crop(data)  # (3，帧数，96,96)，中心裁剪，控制输入网络的大小
         data = torch.from_numpy(data)
 
         if fusion:
@@ -88,9 +109,9 @@ if __name__ == '__main__':
         output = []
         for cl in range(num_classes):
             output.append([])
-        res = torch.zeros(num_classes, top_k, 3)
+        res = torch.zeros(num_classes, top_k, 3)  # (21,5000，3)
 
-        # print(video_name)
+        # 预处理每个clip的rgb,flow特征
         for offset in offsetlist:
             clip = data[:, offset: offset + clip_length]
             clip = clip.float()
@@ -100,7 +121,7 @@ if __name__ == '__main__':
                 flow_clip = flow_clip.float()
                 flow_clip = (flow_clip / 255.0) * 2.0 - 1.0
             # clip = torch.from_numpy(clip).float()
-            if clip.size(1) < clip_length:
+            if clip.size(1) < clip_length:  # 如果视频或某个clip剪辑的长度小于256帧，用0进行填充
                 tmp = torch.zeros([clip.size(0), clip_length - clip.size(1),
                                    96, 96]).float()
                 clip = torch.cat([clip, tmp], dim=1)
@@ -113,12 +134,8 @@ if __name__ == '__main__':
                 flow_clip = flow_clip.unsqueeze(0).cuda()
 
             with torch.no_grad():
-                #print('clip的大小')
-                #print(clip.shape)
                 output_dict = net(clip)
                 if fusion:
-                    #print('flow_clip的大小')
-                    #print(flow_clip.shape)
                     flow_output_dict = flow_net(flow_clip)
 
             loc, conf, priors = output_dict['loc'], output_dict['conf'], output_dict['priors'][0]
@@ -184,10 +201,7 @@ if __name__ == '__main__':
                 segments = torch.cat([segments, scores.unsqueeze(1)], -1)
 
                 output[cl].append(segments)
-                # np.set_printoptions(precision=3, suppress=True)
-                # print(idx_to_class[cl], tmp.detach().cpu().numpy())
 
-        # print(output[1][0].size(), output[2][0].size())
         sum_count = 0
         for cl in range(1, num_classes):
             if len(output[cl]) == 0:
